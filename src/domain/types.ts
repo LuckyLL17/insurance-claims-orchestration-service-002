@@ -47,6 +47,8 @@ export interface ClaimState {
   policy?: PolicyVersion;
   ruleSnapshot?: RuleSnapshot;
   evidence: EvidenceRecord[];
+  /** Exactly one effective version per kind; recomputed from `evidence` so replay matches live processing. */
+  currentEvidence: EvidenceRecord[];
   requiredEvidence: Set<string>;
   completedSurveys: string[];
   pendingDocuments: string[];
