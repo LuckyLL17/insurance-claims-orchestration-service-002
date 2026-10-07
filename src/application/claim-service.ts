@@ -18,11 +18,16 @@ export class ClaimService {
   addEvent(id: string, type: DomainEvent['type'], payload: unknown, actor: string, key?: string, occurredAt?: string): ClaimState { this.assertExists(id); this.events.append(id, type, payload, actor, key, occurredAt); return this.get(id); }
 
   addEvidence(id: string, input: { kind: string; source: string; content: unknown; receivedAt?: string; supersedes?: string }, actor: string, key?: string): ClaimState {
-    const claim = this.get(id); const record = this.evidence.add(input, claim.evidence); return this.addEvent(id, 'evidence.added', { evidence: record }, actor, key, input.receivedAt);
+    const claim = this.get(id); const record = this.evidence.add(input, claim.evidence);
+    if (claim.evidence.some((item) => item.id === record.id)) return claim; // duplicate submission: state already reflects it, append nothing
+    return this.addEvent(id, 'evidence.added', { evidence: record }, actor, key, input.receivedAt);
   }
 
   reviewEvidence(id: string, evidenceId: string, accepted: boolean, actor: string, key?: string): ClaimState {
-    const claim = this.get(id); const record = this.evidence.review(evidenceId, accepted, claim.evidence); return this.addEvent(id, 'evidence.reviewed', { evidence: record }, actor, key);
+    const claim = this.get(id); const existing = claim.evidence.find((item) => item.id === evidenceId);
+    if (!existing) throw new Error(`unknown evidence ${evidenceId}`);
+    if (existing.reviewed && existing.accepted === accepted) return claim; // duplicate review: idempotent no-op
+    const record = this.evidence.review(evidenceId, accepted, claim.evidence); return this.addEvent(id, 'evidence.reviewed', { evidence: record }, actor, key);
   }
 
   get(id: string): ClaimState { return this.replay(id, this.events.list(id)); }
